@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>말랑말랑 꼬맨틀 - 단어 유사도 추측 게임</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts (Jua & Gowun Dodum) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti (축하 효과) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <style>
+    /* 은하수 감성의 테마 컬러 정의 */
+    :root {
+      --color-bg: #0c0a17;       /* 깊고 소프트한 인디고 */
+      --color-card: #17132a;     /* 부드러운 다크 라벤더 카드 */
+      --color-border: #292147;   /* 밀키 라벤더 보더 */
+      --color-pink: #ff7695;     /* 부드러운 딸기우유 핑크 */
+      --color-purple: #b399ff;   /* 라벤더 퍼플 */
+      --color-mint: #4ce5b6;     /* 상큼한 애플민트 */
+      --color-yellow: #ffcf56;   /* 달콤한 허니 버터 옐로우 */
+    }
+
+    body {
+      font-family: 'Gowun Dodum', sans-serif;
+      background-color: var(--color-bg);
+      -webkit-text-size-adjust: 100%; /* iOS 가로모드 폰트 무단 확대 방지 */
+    }
+    .font-jua {
+      font-family: 'Jua', sans-serif;
+    }
+    .bg-custom-card {
+      background-color: var(--color-card);
+    }
+    .border-custom {
+      border-color: var(--color-border);
+    }
+    
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #110e20;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-pink);
+      border: 2px solid #110e20;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #ff91aa;
+    }
+    
+    /* 아이폰(iOS) 스무스 스크롤 최적화 */
+    .ios-scroll {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* iOS 터치 하이라이트 투명화 */
+    input, button, select, textarea {
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* 둥글둥글 팝업 바운스 애니메이션 */
+    @keyframes bubble-up {
+      0% { transform: scale(0.95) translateY(10px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .animate-bubble {
+      animation: bubble-up 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+    }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col justify-between selection:bg-pink-400/30 selection:text-pink-200">
+
+  <!-- Header -->
+  <header class="border-b border-white/[0.04] bg-[#110e20]/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 sm:px-5 h-20 flex items-center justify-between gap-2">
+      <!-- 로고 및 모드 -->
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+        <span class="text-2xl sm:text-3xl animate-bounce flex-shrink-0" style="animation-duration: 3s;">🧸</span>
+        <div class="flex flex-col min-w-0 justify-center">
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl sm:text-2xl font-jua tracking-wide bg-gradient-to-r from-[#ff7695] via-[#b399ff] to-[#ffcf56] bg-clip-text text-transparent whitespace-nowrap overflow-hidden">
+              말랑 꼬맨틀
+            </h1>
+            <span id="gameModeBadge" class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm font-jua border whitespace-nowrap">오늘의 단어</span>
+            <button id="btnSwitchToDaily" class="hidden text-[9px] sm:text-[10px] text-[#ff7695] hover:underline font-bold font-jua whitespace-nowrap">돌아가기 ↩️</button>
+          </div>
+          <!-- 타이틀 하단 유사도 & 대왕 힌트 바로 가기 버튼 묶음 -->
+          <div class="flex items-center gap-2 mt-1 sm:mt-1.5 flex-shrink-0">
+            <button id="btnOpenBaseHint" class="text-[9px] sm:text-[10.5px] px-2.5 py-0.5 sm:py-1 rounded-full font-bold shadow-sm font-jua border border-[#b399ff]/30 bg-[#b399ff]/10 text-[#b399ff] hover:bg-[#b399ff]/20 transition-all cursor-pointer whitespace-nowrap">💡 유사도 기준표</button>
+            <button id="btnOpenMegaHint" class="text-[9px] sm:text-[10.5px] px-2.5 py-0.5 sm:py-1 rounded-full font-bold shadow-sm font-jua border border-[#ffcf56]/30 bg-[#ffcf56]/10 text-[#ffcf56] hover:bg-[#ffcf56]/20 transition-all cursor-pointer whitespace-nowrap">🎁 대왕 힌트</button>
+          </div>
+        </div>
+      </div>
+      <!-- 헤더 우측 메뉴 버튼 -->
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <!-- 도움말 -->
+        <button id="btnHelp" class="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] hover:scale-105 active:scale-95 text-[#b399ff] border border-white/[0.05] transition-all flex items-center justify-center cursor-pointer" title="도움말">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          </svg>
+        </button>
+        <!-- 새게임 리셋 -->
+        <button id="btnRefresh" class="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] hover:scale-105 active:scale-95 text-[#ffcf56] border border-white/[0.05] transition-all flex items-center justify-center cursor-pointer" title="새 게임 (연습 모드)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-6">
+    
+    <!-- 2단 그리드 래퍼 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+      
+      <!-- [왼쪽 컬럼 상단] 플레이 제어판 및 입력창 (모바일 1순위 노출) -->
+      <div class="lg:col-span-7 flex flex-col gap-6 w-full order-1">
+        
+        <!-- 최고 기록 및 현재 통계 대시보드 -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-custom-card border border-custom p-3.5 rounded-2xl text-center shadow-lg shadow-black/[0.15]">
+            <p class="text-xs text-[#b399ff]/80 font-bold">추측 개수</p>
+            <p id="statGuesses" class="text-2xl font-jua text-[#ff7695] mt-1">0개</p>
+          </div>
+          <div class="bg-custom-card border border-custom p-3.5 rounded-2xl text-center shadow-lg shadow-black/[0.15]">
+            <p class="text-xs text-[#b399ff]/80 font-bold">최고 점수</p>
+            <p id="statBestScore" class="text-2xl font-jua text-[#ffcf56] mt-1">-</p>
+          </div>
+          <div class="bg-custom-card border border-custom p-3.5 rounded-2xl text-center shadow-lg shadow-black/[0.15]">
+            <p class="text-xs text-[#b399ff]/80 font-bold">최고 순위</p>
+            <p id="statBestRank" class="text-2xl font-jua text-[#4ce5b6] mt-1">-</p>
+          </div>
+        </div>
+
+        <!-- 입력창 -->
+        <div class="bg-custom-card border-2 border-white/[0.04] p-5 rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.25)] flex flex-col gap-3.5 relative overflow-hidden">
+          <!-- 상단 디자인 라인 -->
+          <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#ff7695] via-[#b399ff] to-[#ffcf56]"></div>
+          
+          <div class="flex justify-between items-center gap-2">
+            <label for="wordInput" class="text-xs font-bold text-[#b399ff] pl-0.5 flex items-center gap-1.5 font-jua tracking-wider min-w-0">
+              <span class="flex-shrink-0">🍭</span> <span class="truncate">머릿속에 떠오른 단어를 입력창에 쏙!</span>
+            </label>
+            <!-- 포기하기 버튼 -->
+            <button id="btnGiveUp" class="text-[10px] sm:text-[11px] font-bold text-[#ff7695] bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 border border-[#ff7695]/30 hover:border-[#ff7695]/60 hover:shadow-[0_0_12px_rgba(255,118,149,0.2)] px-3 py-1 rounded-xl transition-all duration-200 flex-shrink-0 font-jua flex items-center gap-1 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+              🏳️ 포기할꼬야?
+            </button>
+          </div>
+          <form id="guessForm" class="flex gap-2">
+            <input 
+              type="text" 
+              id="wordInput" 
+              placeholder="여기에 말랑한 단어를 써줘!" 
+              autocomplete="off"
+              class="flex-1 min-w-0 bg-[#0f0d1e] border border-custom rounded-2xl px-4 py-3.5 text-slate-100 placeholder-[#b399ff]/40 focus:outline-none focus:ring-2 focus:ring-[#ff7695]/30 focus:border-[#ff7695] transition-all font-semibold text-base"
+              style="-webkit-appearance: none; border-radius: 1rem;"
+            >
+            <button 
+              type="submit" 
+              class="flex-shrink-0 bg-gradient-to-r from-[#ff7695] to-[#ae92ff] hover:opacity-95 active:scale-95 text-white font-jua px-5 sm:px-7 py-3.5 rounded-2xl shadow-lg shadow-pink-500/10 transition-all duration-150 text-base sm:text-lg tracking-wider cursor-pointer"
+            >
+              쏙!
+            </button>
+          </form>
+        </div>
+
+        <!-- 최근 추측 분석 메인 카드 -->
+        <div id="latestGuessCard" class="hidden bg-custom-card border border-custom p-5 rounded-[24px] flex flex-col gap-4 shadow-[0_12px_45px_rgba(0,0,0,0.3)] transition-all duration-300 animate-bubble relative overflow-hidden">
+          <!-- 배경 은은한 소프트 글로우 -->
+          <div class="absolute -right-20 -top-20 w-48 h-48 rounded-full bg-[#ff7695]/8 blur-3xl pointer-events-none"></div>
+          <div class="absolute -left-20 -bottom-20 w-48 h-48 rounded-full bg-[#4ce5b6]/8 blur-3xl pointer-events-none"></div>
+          
+          <div class="flex justify-between items-center z-10">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-[10px] font-bold tracking-widest text-[#b399ff] uppercase font-jua flex-shrink-0">방금 제출한 단어 분석</span>
+              <!-- 시맨틱 뱃지 자리를 이곳(소제목 우측)으로 이동하여, 아래쪽 단어 배열 붕괴를 방지! -->
+              <span id="latestSemanticBadge"></span>
+            </div>
+            <span id="latestIndicator" class="text-[11px] font-jua px-3 py-1 rounded-full shadow-sm flex-shrink-0 ml-2"></span>
+          </div>
+          <div class="flex items-baseline justify-between z-10 gap-4">
+            <h3 id="latestWord" class="text-2xl sm:text-3xl font-jua text-white truncate min-w-0">
+              단어
+            </h3>
+            <div class="flex items-baseline gap-3 sm:gap-4 text-right flex-shrink-0">
+              <div>
+                <span class="text-[10px] text-[#b399ff]/80 block font-bold">말랑 유사도</span>
+                <span id="latestScore" class="text-xl sm:text-2xl font-jua text-[#ffcf56]">0.00</span>
+              </div>
+              <div class="border-l border-white/[0.08] h-6 sm:h-8 self-end mx-0 sm:mx-1"></div>
+              <div>
+                <span class="text-[10px] text-[#b399ff]/80 block font-bold">정답 순위</span>
+                <span id="latestRank" class="text-xl sm:text-2xl font-jua text-[#ff7695] whitespace-nowrap">--</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 말랑 젤리 프로그레스 슬라이더 -->
+          <div class="relative w-full h-4 mt-2">
+            <div class="absolute inset-0 bg-[#0f0d1e] rounded-full border border-custom p-[1px] overflow-hidden">
+              <div id="latestProgressBar" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-[#42a7f5] via-[#ff7695] to-[#ffcf56]" style="width: 0%"></div>
+            </div>
+            <!-- 곰돌이 슬라이더 헤드 -->
+            <div id="sliderThumb" class="absolute top-1/2 -translate-y-1/2 -ml-2.5 transition-all duration-500 text-lg select-none pointer-events-none" style="left: 0%">
+              🧸
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- [오른쪽 컬럼 -> 모바일 2순위 정렬] 단어 도감 상자 -->
+      <div class="lg:col-span-5 flex flex-col gap-3.5 w-full lg:sticky lg:top-24 order-2">
+        
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-jua text-slate-300 flex items-center gap-2 tracking-wide">
+            <span>🍩</span> 단어 도감 상자 
+            <span id="historyCount" class="text-xs bg-[#ff7695]/10 text-[#ff7695] border border-[#ff7695]/20 px-2.5 py-0.5 rounded-full font-jua font-bold">0</span>
+          </h2>
+          <!-- 정렬 방식 변경 -->
+          <div class="flex gap-1 bg-custom-card p-1 rounded-xl border border-custom text-xs font-jua">
+            <button id="sortLatest" class="px-3.5 py-1.5 rounded-lg font-bold bg-[#ff7695]/15 text-[#ff7695] border border-[#ff7695]/20 transition-all cursor-pointer">최신순</button>
+            <button id="sortSimilarity" class="px-3.5 py-1.5 rounded-lg font-bold text-[#b399ff]/60 hover:text-[#b399ff] transition-all cursor-pointer">유사도순</button>
+          </div>
+        </div>
+
+        <!-- 리스트 컨테이너 -->
+        <div class="bg-[#151126]/40 border border-custom rounded-[24px] overflow-hidden flex flex-col shadow-inner backdrop-blur-sm lg:h-[calc(100vh-14.5rem)] lg:min-h-[460px]">
+          <div id="historyList" class="flex-1 overflow-y-auto max-h-[420px] lg:max-h-none divide-y divide-white/[0.03] ios-scroll relative">
+            
+            <!-- [완벽 수직 정렬 완료] -->
+            <div class="sticky top-0 z-20 grid grid-cols-[1.5fr_4.5fr_3fr_3fr] gap-1 sm:gap-2 px-2 sm:px-4 py-3 bg-[#17132a] text-[10px] sm:text-xs font-bold text-[#b399ff] border-b border-custom font-jua tracking-wider flex-shrink-0 items-center shadow-sm w-full">
+              <div class="text-center min-w-0">차례</div>
+              <div class="text-left pl-6 sm:pl-7 min-w-0">단어 이름</div>
+              <div class="text-center min-w-0">유사도</div>
+              <div class="text-center min-w-0 whitespace-nowrap">순위</div>
+            </div>
+
+            <!-- 실제 데이터 행들이 가동되는 래퍼 객체 (renderAll 타겟) -->
+            <div id="historyRows" class="divide-y divide-white/[0.03] w-full">
+              <!-- 동적 바인딩 영역 -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/[0.03] bg-[#090712]/60 py-5 text-center text-xs text-[#b399ff]/40 font-medium tracking-wide">
+    <div class="max-w-5xl mx-auto px-4">
+      <p>🍒 말랑 꼬맨틀은 온디바이스 지능형 시맨틱 엔진으로 완벽 작동합니다 🍒</p>
+    </div>
+  </footer>
+
+  <!-- Toast 알림 레이아웃 -->
+  <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-11/12 max-w-sm"></div>
+
+  <!-- [신규 모달 1] 💡 유사도 기준표 팝업 모달 -->
+  <div id="baseHintModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-custom-card border border-custom rounded-[28px] w-full max-w-md overflow-hidden shadow-2xl animate-bubble">
+      <div class="px-6 py-5 border-b border-custom flex justify-between items-center bg-[#0f0d1e]/40">
+        <h3 class="font-jua text-xl text-[#ff7695] flex items-center gap-2">💡 이번 판 유사도 기준표</h3>
+        <button id="btnCloseBaseHint" class="text-[#b399ff] hover:text-[#ff7695] transition-colors cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 text-xs leading-relaxed text-slate-300 flex flex-col gap-4 font-medium max-h-[60vh] overflow-y-auto ios-scroll">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bg-custom-card/60 p-3.5 rounded-2xl border border-custom/60 flex flex-col gap-1 text-center shadow-md">
+            <span class="text-sm font-bold text-[#ffcf56] font-jua">🥇 가장 유사 (1위)</span>
+            <p id="hintFirst" class="text-lg font-black text-white font-mono mt-1">--</p>
+            <span class="text-[10px] text-slate-400">정답에 가장 가까운 단어</span>
+          </div>
+          <div class="bg-custom-card/60 p-3.5 rounded-2xl border border-custom/60 flex flex-col gap-1 text-center shadow-md">
+            <span class="text-sm font-bold text-[#ff7695] font-jua">🥈 10번째 유사 (10위)</span>
+            <p id="hintTenth" class="text-lg font-black text-white font-mono mt-1">--</p>
+            <span class="text-[10px] text-slate-400">상위 10위 유사도 마지노선</span>
+          </div>
+          <div class="bg-custom-card/60 p-3.5 rounded-2xl border border-custom/60 flex flex-col gap-1 text-center shadow-md">
+            <span class="text-sm font-bold text-[#b399ff] font-jua">🥉 1000번째 유사 (1000위)</span>
+            <p id="hintThousandth" class="text-lg font-black text-white font-mono mt-1">--</p>
+            <span class="text-[10px] text-slate-400">순위권 진입 최소 기준</span>
+          </div>
+        </div>
+
+        <div class="bg-purple-950/20 p-4 rounded-2xl border border-[#b399ff]/20 flex flex-col gap-2">
+          <h4 class="font-jua text-[#b399ff] text-sm flex items-center gap-1">💡 1위의 유사도가 왜 100이 아닐까요?</h4>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            정답 단어 자기 자신을 입력하면 유사도는 당연히 <strong class="text-white">100.00</strong>입니다! <br>
+            하지만 시스템이 표시하는 <strong class="text-white">"가장 유사한 단어(1위)"</strong>는 정답을 제외하고 우주에 존재하는 모든 단어 중 가장 정답에 밀접한 <strong class="text-[#ff7695]">다른 단어</strong>를 의미합니다. 아무리 뜻이 비슷해도 엄연히 다른 단어이기 때문에 AI 차원 공간에서 완벽히 일치할 수 없으므로 유사도가 100%가 될 수 없는 것입니다!
+          </p>
+        </div>
+      </div>
+      <div class="px-6 py-4 bg-[#0f0d1e]/40 border-t border-custom text-center">
+        <button id="btnConfirmBaseHint" class="w-full bg-gradient-to-r from-[#ff7695] to-[#ae92ff] text-white font-jua py-3 rounded-2xl transition-all shadow-md cursor-pointer">
+          확인 완료!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [신규 모달 2] 🎁 대왕 힌트 상자 팝업 모달 -->
+  <div id="megaHintModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-custom-card border border-custom rounded-[28px] w-full max-w-lg overflow-hidden shadow-2xl animate-bubble">
+      <div class="px-6 py-5 border-b border-custom flex justify-between items-center bg-[#0f0d1e]/40">
+        <h3 class="font-jua text-xl text-[#ffcf56] flex items-center gap-2">🎁 말랑 대왕 힌트 상자</h3>
+        <button id="btnCloseMegaHint" class="text-[#b399ff] hover:text-[#ff7695] transition-colors cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 text-sm text-slate-300 leading-relaxed flex flex-col gap-4 font-medium max-h-[60vh] overflow-y-auto ios-scroll">
+        <div class="flex justify-between items-center">
+          <span class="text-xs text-slate-400 font-bold">방향을 잡기 힘들 때 사용해보세요!</span>
+          <span id="megaHintCountBadge" class="text-xs bg-rose-500/10 text-[#ff7695] border border-[#ff7695]/20 px-2.5 py-0.5 rounded-full font-jua">남은 힌트: 3회</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-normal">
+          총 3번에 걸쳐 각 범위 내에 안착한 사전 단어들의 정보가 대방출됩니다. (한 판당 최대 3회 사용 가능)
+        </p>
+        
+        <button id="btnUseMegaHint" class="w-full bg-gradient-to-r from-[#ff7695] to-[#ae92ff] text-white font-jua py-3 rounded-2xl transition-all shadow-md text-sm hover:opacity-95 active:scale-95 cursor-pointer">
+          첫 번째 힌트 열기 (501위~1000위 단어 대공개!)
+        </button>
+        
+        <!-- 힌트 출력 디스플레이 영역 -->
+        <div id="megaHintDisplayArea" class="flex flex-col gap-3.5 mt-2 hidden">
+          <!-- 동적으로 힌트 1, 2, 3이 최신순(역순)으로 렌더링 됨 -->
+        </div>
+      </div>
+      <div class="px-6 py-4 bg-[#0f0d1e]/40 border-t border-custom text-center">
+        <button id="btnConfirmMegaHint" class="w-full bg-[#110e20] border border-custom text-[#b399ff] hover:text-[#ff7695] font-jua py-3 rounded-2xl transition-all cursor-pointer">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 게임 가이드/규칙 모달 -->
+  <div id="helpModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-custom-card border border-custom rounded-[28px] w-full max-w-md overflow-hidden shadow-2xl animate-bubble">
+      <div class="px-6 py-5 border-b border-custom flex justify-between items-center bg-[#0f0d1e]/40">
+        <h3 class="font-jua text-xl text-[#ff7695] flex items-center gap-2">🧸 말랑 꼬맨틀 설명서</h3>
+        <button id="btnCloseHelp" class="text-[#b399ff] hover:text-[#ff7695] transition-colors cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 text-sm text-slate-300 leading-relaxed flex flex-col gap-4 font-medium max-h-[60vh] overflow-y-auto ios-scroll">
+        <p>정답 단어와 내가 제출한 단어 간의 <span class="text-[#ffcf56] font-bold">의미적 가까움</span>을 분석해 정답을 찾아가는 수수께끼 놀이터입니다!</p>
+        
+        <div class="bg-[#0f0d1e]/60 p-4 rounded-2xl border border-custom flex flex-col gap-2.5">
+          <div class="flex items-start gap-2.5">
+            <span class="text-lg">💖</span>
+            <p><strong>유사도 (-100 ~ 100)</strong>: 정답 단어와 문맥이 비슷할수록 높은 점수를 얻고 점수 바가 쑥쑥 올라갑니다!</p>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="text-lg">👑</span>
+            <p><strong>순위</strong>: 정답과 가장 밀접한 1위~1,000위 단어들에 속할 경우 실제 순위를 표시하며, 그 외에는 <span class="text-[#ff7695] font-bold">"1,000+"</span>로 표기해요.</p>
+          </div>
+        </div>
+
+        <!-- 💡 유사도 기준표 팝업 설명서 보강 -->
+        <div class="border-t border-white/[0.05] pt-3 flex flex-col gap-1.5">
+          <h4 class="font-jua text-[#ffcf56] text-sm flex items-center gap-1.5">💡 유사도 기준표란?</h4>
+          <p class="text-slate-400 text-xs leading-normal">
+            각 판마다 정답을 제외하고 세상에 존재하는 모든 단어 중 의미가 가장 인접한 <strong>1위, 10위, 1000위 단어의 실제 유사도 마지노선 점수</strong>를 보여줍니다. 단어 공간 구조상 정답을 제외한 1위 단어조차 약 55점 안팎으로 다르게 책정되므로 이 수치를 정밀히 엿보아 내 추측 단어의 위치를 역산해 보세요!
+          </p>
+        </div>
+
+        <!-- 🎁 대왕 힌트 상자 팝업 설명서 보강 -->
+        <div class="border-t border-white/[0.05] pt-3 flex flex-col gap-1.5">
+          <h4 class="font-jua text-[#b399ff] text-sm flex items-center gap-1.5">🎁 대왕 힌트 상자란?</h4>
+          <p class="text-slate-400 text-xs leading-normal">
+            도저히 갈피를 잡을 수 없을 때 사용하는 강력한 탈출 장치입니다! 한 판당 3회까지 사용할 수 있으며, 잠금을 해제할 때마다 <strong>1단계(501~1000위), 2단계(101~500위), 3단계(11~100위)</strong>에 속한 실제 유사 단어 도감이 최신순으로 정렬되어 대공개됩니다.
+          </p>
+        </div>
+
+        <h4 class="font-jua text-[#ffcf56] text-sm mt-1 border-t border-white/[0.05] pt-3">🧠 지능형 시맨틱 추정 엔진 탑재!</h4>
+        <p class="text-slate-400 text-xs leading-relaxed">
+          데이터베이스에 존재하지 않는 복합어나 전문 신조어를 입력하셔도 괜찮아요! 마법 형태소 분석과 자바스크립트 해시 조합으로 부드럽고 합리적인 유사도를 찾아냅니다.
+        </p>
+
+        <h4 class="font-jua text-[#b399ff] text-sm mt-1">💡 이것만 알면 끝!</h4>
+        <ul class="list-disc list-inside space-y-1 text-slate-400 text-xs pl-1">
+          <li><strong>뜨거움(🔥 Hot)</strong>: 정답과 정말 긴밀한 단어예요!</li>
+          <li><strong>차가움(🧊 Cold)</strong>: 아쉽지만 정답과 동떨어진 카테고리예요!</li>
+        </ul>
+      </div>
+      <div class="px-6 py-4 bg-[#0f0d1e]/40 border-t border-custom text-center">
+        <button id="btnStartGame" class="w-full bg-gradient-to-r from-[#ff7695] to-[#ae92ff] text-white font-jua py-3.5 rounded-2xl transition-all shadow-md cursor-pointer">
+          신나게 출발할꼬야!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [중요] 귀여운 수제 커스텀 확인(Confirm) 모달 -->
+  <div id="confirmModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-custom-card border-2 border-[#ff7695]/30 rounded-3xl w-full max-w-xs overflow-hidden shadow-2xl animate-bubble p-6 text-center flex flex-col items-center gap-4">
+      <span class="text-5xl">🥺</span>
+      <h3 class="font-jua text-lg text-[#ff7695]">정말로 리셋할꼬야?</h3>
+      <p class="text-xs text-slate-400 font-medium leading-normal">지금까지 찾아놓은 소중한 단어 추측 상자가 몽땅 비워지고 새로운 랜덤 단어판이 시작돼!</p>
+      
+      <div class="flex gap-2.5 w-full mt-2">
+        <button id="btnConfirmNo" class="flex-1 py-3 bg-[#0f0d1e] border border-custom text-slate-400 hover:text-slate-200 font-jua rounded-xl transition-all text-sm cursor-pointer">
+          아니 안할래!
+        </button>
+        <button id="btnConfirmYes" class="flex-1 py-3 bg-gradient-to-r from-[#ff7695] to-[#ae92ff] text-white font-jua rounded-xl hover:opacity-95 active:scale-95 transition-all text-sm cursor-pointer">
+          응! 리셋할래!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [임시 텍스트 영역 복사용 노드 제공 가드] -->
+  <textarea id="tempShareNode" style="position: absolute; left: -9999px; top: -9999px; font-size: 12pt; border: 0; padding: 0; margin: 0;" readonly></textarea>
+
+  <script>
+    /* ==========================================
+       1. 대폭 확장된 시맨틱 임베딩 단어 데이터베이스
+       ========================================== */
+    const WORD_DATABASE = {
+      // 명사 - 과일 & 음식 채소류
+      "사과": [0.95, 0.05, 0.00, 0.10, 0.20, 0.15],
+      "바나나": [0.95, 0.05, 0.00, 0.10, 0.15, 0.15],
+      "포도": [0.95, 0.05, 0.00, 0.10, 0.20, 0.12],
+      "과일": [0.90, 0.00, 0.10, 0.10, 0.15, 0.20],
+      "채소": [0.90, 0.00, 0.10, 0.05, 0.10, 0.20],
+      "음식": [0.40, 0.80, 0.20, 0.30, 0.50, 0.30],
+      "밥": [0.45, 0.70, 0.05, 0.20, 0.60, 0.15],
+      "고기": [0.80, 0.10, 0.05, 0.10, 0.50, 0.25],
+      "빵": [0.10, 0.90, 0.05, 0.20, 0.55, 0.18],
+      "라면": [0.05, 0.95, 0.05, 0.15, 0.85, 0.22],
+      "피자": [0.05, 0.95, 0.05, 0.25, 0.70, 0.35],
+      "치즈": [0.50, 0.60, 0.05, 0.10, 0.40, 0.12],
+      "우유": [0.60, 0.30, 0.05, 0.10, 0.25, 0.15],
+      "커피": [0.40, 0.70, 0.10, 0.40, 0.75, 0.14],
+      "물": [0.10, 0.00, 0.10, 0.10, 0.30, 0.50],
+      "요리": [0.20, 0.80, 0.40, 0.30, 0.60, 0.45],
+      "식사": [0.35, 0.70, 0.50, 0.30, 0.50, 0.50],
+      "식당": [0.30, 0.90, 0.60, 0.20, 0.45, 0.65],
+      "시장": [0.60, 0.50, 0.40, 0.20, 0.35, 0.75],
+      "설탕": [0.10, 0.85, 0.05, 0.10, 0.30, 0.10],
+      "간장": [0.25, 0.80, 0.05, 0.05, 0.25, 0.12],
+      "고구마": [0.92, 0.05, 0.05, 0.12, 0.35, 0.18],
+      "감자": [0.92, 0.05, 0.05, 0.08, 0.30, 0.16],
+      "작물": [0.85, 0.10, 0.30, 0.05, 0.20, 0.55],
+      "농사": [0.80, 0.40, 0.50, 0.10, 0.45, 0.75],
+      
+      // 깨소금 스페셜 유사 단어 컴포넌트들
+      "깨소금": [0.20, 0.85, 0.08, 0.10, 0.28, 0.11],
+      "후춧가루": [0.18, 0.88, 0.05, 0.08, 0.35, 0.10],
+      "생강즙": [0.35, 0.75, 0.05, 0.08, 0.25, 0.12],
+      "꽈리고추": [0.88, 0.20, 0.05, 0.10, 0.32, 0.14],
+      "멸치볶음": [0.45, 0.82, 0.05, 0.15, 0.55, 0.22],
+      "소금": [0.10, 0.90, 0.05, 0.05, 0.20, 0.12],
+      "참기름": [0.35, 0.80, 0.05, 0.15, 0.45, 0.14],
+      "식초": [0.10, 0.85, 0.08, 0.05, 0.18, 0.12],
+      "고춧가루": [0.20, 0.88, 0.05, 0.12, 0.50, 0.12],
+      "마늘": [0.88, 0.15, 0.05, 0.08, 0.38, 0.13],
+      "양파": [0.88, 0.12, 0.05, 0.08, 0.22, 0.15],
+      "대파": [0.88, 0.10, 0.05, 0.05, 0.25, 0.18],
+      "고추장": [0.20, 0.90, 0.10, 0.15, 0.55, 0.20],
+      "된장": [0.40, 0.80, 0.10, 0.12, 0.50, 0.22],
+      
+      // 명사 - 생물 & 동물류
+      "강아지": [0.98, 0.02, 0.00, 0.85, 0.45, 0.35],
+      "고양이": [0.98, 0.02, 0.00, 0.80, 0.40, 0.30],
+      "토끼": [0.95, 0.01, 0.00, 0.60, 0.35, 0.20],
+      "사자": [0.95, 0.01, 0.00, 0.30, 0.45, 0.65],
+      "호랑이": [0.95, 0.01, 0.00, 0.30, 0.45, 0.70],
+      "원숭이": [0.96, 0.01, 0.00, 0.45, 0.40, 0.45],
+      "물고기": [0.90, 0.01, 0.00, 0.15, 0.20, 0.25],
+      "고래": [0.92, 0.01, 0.00, 0.25, 0.25, 0.95],
+      "새": [0.92, 0.01, 0.00, 0.30, 0.35, 0.22],
+      "나비": [0.85, 0.00, 0.00, 0.35, 0.20, 0.08],
+      "동물": [0.95, 0.00, 0.20, 0.40, 0.40, 0.60],
+      "사람": [0.99, 0.10, 0.40, 0.85, 0.50, 0.55],
+      "친구": [0.99, 0.05, 0.75, 0.90, 0.55, 0.55],
+      "가족": [0.99, 0.05, 0.85, 0.95, 0.60, 0.70],
+      "아기": [0.99, 0.02, 0.30, 0.90, 0.48, 0.28],
+      "어린이": [0.99, 0.05, 0.40, 0.80, 0.45, 0.38],
+      "부모": [0.99, 0.08, 0.70, 0.90, 0.52, 0.62],
+      "의사": [0.98, 0.85, 0.70, 0.50, 0.45, 0.60],
+      "경찰": [0.98, 0.90, 0.60, 0.40, 0.55, 0.65],
+      "학생": [0.98, 0.70, 0.65, 0.55, 0.40, 0.50],
+      "선생님": [0.99, 0.75, 0.75, 0.70, 0.45, 0.58],
+
+      // 명사 - 사물 & 기술 & 가구류
+      "컴퓨터": [0.01, 0.99, 0.15, 0.10, 0.45, 0.50],
+      "스마트폰": [0.01, 0.99, 0.20, 0.40, 0.40, 0.20],
+      "노트북": [0.01, 0.99, 0.15, 0.10, 0.42, 0.35],
+      "인터넷": [0.00, 0.95, 0.85, 0.30, 0.20, 0.85],
+      "자동차": [0.01, 0.99, 0.05, 0.15, 0.65, 0.80],
+      "비행기": [0.01, 0.99, 0.05, 0.20, 0.60, 0.95],
+      "책": [0.00, 0.90, 0.70, 0.20, 0.15, 0.25],
+      "연필": [0.00, 0.85, 0.10, 0.05, 0.10, 0.12],
+      "시계": [0.00, 0.95, 0.45, 0.05, 0.20, 0.20],
+      "안경": [0.00, 0.92, 0.15, 0.05, 0.15, 0.18],
+      "의자": [0.00, 0.90, 0.10, 0.05, 0.15, 0.35],
+      "책상": [0.00, 0.90, 0.10, 0.05, 0.15, 0.45],
+      "거울": [0.00, 0.92, 0.25, 0.05, 0.15, 0.30],
+      "가방": [0.00, 0.90, 0.10, 0.10, 0.15, 0.32],
+      "로봇": [0.15, 0.98, 0.30, 0.15, 0.40, 0.55],
+      "텔레비전": [0.01, 0.99, 0.25, 0.30, 0.45, 0.60],
+      "카메라": [0.01, 0.95, 0.30, 0.25, 0.35, 0.24],
+      "전화기": [0.01, 0.98, 0.35, 0.30, 0.38, 0.25],
+      "냉장고": [0.01, 0.99, 0.10, 0.15, 0.05, 0.65],
+      "세탁기": [0.01, 0.99, 0.10, 0.10, 0.35, 0.60],
+      "에어컨": [0.01, 0.99, 0.10, 0.10, 0.10, 0.55],
+      "선풍기": [0.01, 0.98, 0.10, 0.10, 0.15, 0.40],
+      "청소기": [0.01, 0.98, 0.12, 0.12, 0.40, 0.42],
+      "침대": [0.05, 0.95, 0.20, 0.70, 0.40, 0.60],
+      "이불": [0.05, 0.88, 0.20, 0.65, 0.45, 0.55],
+      "베개": [0.05, 0.90, 0.15, 0.65, 0.35, 0.30],
+      "수건": [0.05, 0.90, 0.10, 0.15, 0.30, 0.30],
+      "비누": [0.10, 0.92, 0.15, 0.20, 0.25, 0.15],
+      "치약": [0.05, 0.95, 0.10, 0.15, 0.40, 0.14],
+      "칫솔": [0.05, 0.95, 0.10, 0.10, 0.30, 0.15],
+      "핸드폰": [0.01, 0.99, 0.20, 0.40, 0.40, 0.18],
+      "충전기": [0.01, 0.95, 0.10, 0.15, 0.45, 0.14],
+
+      // 장소 & 지리 & 국가류
+      "집": [0.80, 0.85, 0.60, 0.85, 0.55, 0.65],
+      "학교": [0.90, 0.85, 0.70, 0.50, 0.40, 0.75],
+      "회사": [0.90, 0.90, 0.70, 0.30, 0.35, 0.78],
+      "병원": [0.85, 0.92, 0.60, 0.45, 0.38, 0.70],
+      "공원": [0.75, 0.60, 0.45, 0.65, 0.35, 0.68],
+      "도서관": [0.50, 0.90, 0.80, 0.35, 0.20, 0.65],
+      "나라": [0.85, 0.50, 0.90, 0.55, 0.40, 0.95],
+      "도시": [0.80, 0.95, 0.65, 0.40, 0.45, 0.88],
+      "마트": [0.50, 0.95, 0.20, 0.30, 0.45, 0.65],
+      "길": [0.20, 0.60, 0.70, 0.30, 0.30, 0.75],
+      "방": [0.50, 0.85, 0.30, 0.60, 0.45, 0.40],
+      "서울": [0.80, 0.98, 0.60, 0.45, 0.45, 0.85],
+      "한국": [0.90, 0.80, 0.85, 0.75, 0.48, 0.92],
+      "바다": [0.70, 0.02, 0.30, 0.40, 0.25, 0.92],
+      "산": [0.75, 0.01, 0.20, 0.25, 0.20, 0.85],
+      "하늘": [0.30, 0.01, 0.50, 0.40, 0.25, 0.95],
+      "강": [0.60, 0.02, 0.20, 0.25, 0.25, 0.75],
+      "숲": [0.90, 0.01, 0.40, 0.40, 0.30, 0.80],
+      "우주": [0.02, 0.10, 0.95, 0.40, 0.10, 0.99],
+      "지구": [0.85, 0.15, 0.50, 0.50, 0.45, 0.98],
+      "태양": [0.00, 0.01, 0.40, 0.30, 0.99, 0.97],
+      "구름": [0.10, 0.00, 0.30, 0.25, 0.20, 0.65],
+      "바람": [0.10, 0.00, 0.60, 0.35, 0.20, 0.70],
+      "돌": [0.10, 0.00, 0.10, 0.05, 0.15, 0.30],
+      "나무": [0.95, 0.00, 0.10, 0.20, 0.30, 0.55],
+      "꽃": [0.92, 0.00, 0.15, 0.60, 0.40, 0.22],
+      "눈": [0.15, 0.01, 0.35, 0.25, 0.02, 0.35],
+      "비": [0.15, 0.01, 0.40, 0.35, 0.15, 0.50],
+      "불": [0.00, 0.05, 0.50, 0.65, 0.98, 0.60],
+
+      // 문화 & 활동 & 개념류
+      "돈": [0.05, 0.95, 0.90, 0.60, 0.50, 0.50],
+      "지갑": [0.01, 0.95, 0.20, 0.30, 0.30, 0.20],
+      "은행": [0.50, 0.95, 0.80, 0.30, 0.35, 0.65],
+      "노래": [0.25, 0.50, 0.90, 0.85, 0.55, 0.45],
+      "영화": [0.30, 0.95, 0.90, 0.80, 0.50, 0.70],
+      "음악": [0.20, 0.50, 0.92, 0.88, 0.52, 0.50],
+      "축구": [0.90, 0.60, 0.40, 0.70, 0.80, 0.60],
+      "운동": [0.90, 0.30, 0.60, 0.75, 0.60, 0.60],
+      "여행": [0.80, 0.40, 0.95, 0.92, 0.60, 0.85],
+      "일": [0.70, 0.70, 0.90, 0.30, 0.45, 0.65],
+      "공부": [0.60, 0.50, 0.90, 0.35, 0.30, 0.50],
+      "역사": [0.40, 0.30, 0.99, 0.40, 0.25, 0.90],
+      "미술": [0.20, 0.70, 0.95, 0.75, 0.40, 0.45],
+      "사진": [0.10, 0.90, 0.60, 0.45, 0.30, 0.25],
+      "종이": [0.15, 0.80, 0.30, 0.10, 0.15, 0.20],
+      "나무젓가락": [0.10, 0.85, 0.05, 0.05, 0.15, 0.20],
+      "게임": [0.05, 0.98, 0.75, 0.65, 0.55, 0.48],
+      "휴식": [0.60, 0.20, 0.85, 0.90, 0.30, 0.40],
+      "쇼핑": [0.40, 0.90, 0.60, 0.65, 0.42, 0.52],
+      "파티": [0.55, 0.80, 0.70, 0.92, 0.68, 0.58],
+
+      // 감정 & 추상적 개념류
+      "사랑": [0.20, 0.05, 0.99, 0.99, 0.85, 0.70],
+      "행복": [0.15, 0.05, 0.99, 0.99, 0.80, 0.65],
+      "슬픔": [0.15, 0.02, 0.99, 0.95, 0.20, 0.60],
+      "분노": [0.15, 0.02, 0.99, 0.95, 0.90, 0.70],
+      "평화": [0.10, 0.01, 0.98, 0.90, 0.30, 0.80],
+      "우정": [0.40, 0.05, 0.95, 0.92, 0.65, 0.60],
+      "희망": [0.10, 0.01, 0.99, 0.92, 0.75, 0.75],
+      "꿈": [0.05, 0.01, 0.99, 0.80, 0.40, 0.85],
+      "생각": [0.20, 0.05, 0.98, 0.70, 0.35, 0.50],
+      "마음": [0.30, 0.02, 0.99, 0.95, 0.50, 0.45],
+      "시간": [0.00, 0.10, 0.99, 0.20, 0.25, 0.95],
+      "소리": [0.05, 0.15, 0.80, 0.40, 0.30, 0.40],
+      "빛": [0.00, 0.05, 0.85, 0.50, 0.95, 0.90],
+      "어둠": [0.00, 0.01, 0.85, 0.45, 0.05, 0.90],
+      "삶": [0.80, 0.10, 0.99, 0.85, 0.50, 0.95],
+      "죽음": [0.50, 0.02, 0.99, 0.85, 0.01, 0.95],
+      "기쁨": [0.20, 0.04, 0.99, 0.96, 0.75, 0.55],
+      "미움": [0.15, 0.05, 0.99, 0.92, 0.45, 0.52],
+      "추억": [0.55, 0.10, 0.98, 0.90, 0.35, 0.52],
+      "지혜": [0.35, 0.12, 0.99, 0.60, 0.25, 0.65],
+      "행운": [0.12, 0.05, 0.99, 0.85, 0.62, 0.42],
+
+      // 동사 & 형용사 파트
+      "먹다": [0.75, 0.50, 0.30, 0.45, 0.65, 0.32],
+      "마시다": [0.65, 0.40, 0.20, 0.35, 0.48, 0.22],
+      "달다": [0.35, 0.30, 0.75, 0.70, 0.38, 0.15],
+      "맵다": [0.12, 0.50, 0.65, 0.80, 0.85, 0.18],
+      "짜다": [0.10, 0.55, 0.55, 0.60, 0.45, 0.12],
+      "시끄럽다": [0.22, 0.35, 0.85, 0.88, 0.68, 0.42],
+      "조용하다": [0.18, 0.22, 0.90, 0.72, 0.15, 0.38],
+      "달리다": [0.92, 0.45, 0.22, 0.55, 0.78, 0.50],
+      "걷다": [0.88, 0.35, 0.30, 0.40, 0.45, 0.42],
+      "공부하다": [0.65, 0.60, 0.85, 0.38, 0.25, 0.48],
+      "일하다": [0.75, 0.80, 0.80, 0.42, 0.48, 0.65],
+      "사랑하다": [0.30, 0.10, 0.99, 0.99, 0.82, 0.68],
+      "싫어하다": [0.28, 0.12, 0.99, 0.90, 0.38, 0.55],
+      "생각하다": [0.40, 0.15, 0.98, 0.68, 0.32, 0.52],
+      "느끼다": [0.55, 0.08, 0.99, 0.92, 0.48, 0.45],
+      "꿈꾸다": [0.25, 0.05, 0.99, 0.85, 0.58, 0.75],
+      "말하다": [0.48, 0.45, 0.90, 0.72, 0.48, 0.44],
+      "만들다": [0.40, 0.88, 0.62, 0.45, 0.50, 0.55],
+      "노래하다": [0.45, 0.48, 0.92, 0.88, 0.62, 0.45],
+      "놀다": [0.68, 0.52, 0.82, 0.88, 0.65, 0.42],
+      "아프다": [0.75, 0.45, 0.95, 0.92, 0.28, 0.48],
+      "예쁘다": [0.32, 0.20, 0.95, 0.95, 0.62, 0.25],
+      "춥다": [0.15, 0.05, 0.68, 0.52, 0.02, 0.52],
+      "덥다": [0.15, 0.05, 0.68, 0.58, 0.98, 0.52],
+      "빠르다": [0.35, 0.42, 0.78, 0.50, 0.72, 0.60],
+      "느리다": [0.35, 0.38, 0.82, 0.38, 0.22, 0.50],
+      "크다": [0.25, 0.15, 0.62, 0.28, 0.35, 0.98],
+      "작다": [0.25, 0.15, 0.62, 0.28, 0.35, 0.02],
+      "무겁다": [0.20, 0.30, 0.55, 0.28, 0.28, 0.82],
+      "가볍다": [0.20, 0.28, 0.55, 0.32, 0.28, 0.18],
+      "맑다": [0.48, 0.05, 0.88, 0.68, 0.32, 0.58],
+      "흐리다": [0.32, 0.05, 0.85, 0.42, 0.18, 0.58],
+      "뜨겁다": [0.12, 0.18, 0.62, 0.72, 0.99, 0.45],
+      "차가운": [0.15, 0.18, 0.62, 0.55, 0.01, 0.45],
+      "바쁘다": [0.78, 0.55, 0.88, 0.62, 0.52, 0.55],
+      "깨끗하다": [0.38, 0.65, 0.82, 0.68, 0.32, 0.42],
+      "더럽다": [0.35, 0.52, 0.80, 0.45, 0.38, 0.45],
+      "새롭다": [0.15, 0.48, 0.95, 0.75, 0.52, 0.58],
+      "낡다": [0.20, 0.45, 0.85, 0.32, 0.22, 0.52],
+      "어렵다": [0.45, 0.35, 0.98, 0.48, 0.28, 0.55],
+      "쉽다": [0.45, 0.32, 0.98, 0.52, 0.32, 0.45],
+      "착하다": [0.90, 0.10, 0.92, 0.88, 0.40, 0.42],
+      "나쁘다": [0.85, 0.15, 0.95, 0.75, 0.48, 0.45],
+      "어둡다": [0.10, 0.08, 0.88, 0.35, 0.05, 0.75],
+      "밝다": [0.15, 0.08, 0.90, 0.72, 0.92, 0.75],
+      "행복하다": [0.45, 0.05, 0.99, 0.99, 0.85, 0.62],
+      "슬프다": [0.45, 0.02, 0.99, 0.95, 0.22, 0.58],
+      "화나다": [0.45, 0.05, 0.99, 0.96, 0.88, 0.62],
+      "즐겁다": [0.55, 0.15, 0.98, 0.96, 0.78, 0.52],
+      "부드럽다": [0.48, 0.35, 0.88, 0.82, 0.45, 0.35],
+      "딱딱하다": [0.18, 0.42, 0.45, 0.22, 0.28, 0.45]
+    };
+
+    /* ==========================================
+       2. 온디바이스 지능형 시맨틱 추정 및 랭킹 정밀 보정 엔진
+       ========================================== */
+    const normalizedVectors = {};
+    let calibrationData = {
+      raw_1: 0.95,
+      raw_10: 0.85,
+      raw_1000: 0.60,
+      hintVals: { first: 55.40, tenth: 47.27, thousandth: 24.19 }
+    };
+
+    function initializeNormalizedVectors() {
+      for (const [word, vector] of Object.entries(WORD_DATABASE)) {
+        normalizedVectors[word] = normalizeVector(vector);
+      }
+    }
+
+    function normalizeVector(vector) {
+      let sumSq = 0;
+      for (let i = 0; i < vector.length; i++) {
+        sumSq += vector[i] * vector[i];
+      }
+      const magnitude = Math.sqrt(sumSq);
+      if (magnitude === 0) return vector;
+      return vector.map(v => v / magnitude);
+    }
+
+    function hashString(str) {
+      let hash = 5381;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      }
+      return hash;
+    }
+
+    function generatePseudoVector(word) {
+      const vector = [];
+      let seed = hashString(word);
+      
+      for (let i = 0; i < 6; i++) {
+        seed = (seed * 9301 + 49297) % 233280;
+        vector.push(seed / 233280);
+      }
+      return vector;
+    }
+
+    function getOrEstimateVector(word) {
+      const trimmed = word.trim();
+      if (WORD_DATABASE[trimmed]) {
+        return WORD_DATABASE[trimmed];
+      }
+
+      let bestMatch = null;
+      let maxOverlapRatio = 0;
+
+      for (const knownWord of Object.keys(WORD_DATABASE)) {
+        if (trimmed.includes(knownWord) || knownWord.includes(trimmed)) {
+          const overlapLen = Math.min(trimmed.length, knownWord.length);
+          const totalLen = Math.max(trimmed.length, knownWord.length);
+          const ratio = overlapLen / totalLen;
+          if (ratio > maxOverlapRatio) {
+            maxOverlapRatio = ratio;
+            bestMatch = knownWord;
+          }
+        }
+      }
+
+      const hashVec = generatePseudoVector(trimmed);
+
+      if (bestMatch && maxOverlapRatio > 0.3) {
+        const knownVec = WORD_DATABASE[bestMatch];
+        const blended = [];
+        for (let i = 0; i < 6; i++) {
+          blended.push(knownVec[i] * maxOverlapRatio + hashVec[i] * (1 - maxOverlapRatio));
+        }
+        return blended;
+      }
+
+      return hashVec;
+    }
+
+    function getNormalizedVector(word) {
+      if (normalizedVectors[word]) {
+        return normalizedVectors[word];
+      }
+      const rawVector = getOrEstimateVector(word);
+      const normalized = normalizeVector(rawVector);
+      normalizedVectors[word] = normalized;
+      return normalized;
+    }
+
+    /* [초정밀 보정 시스템]
+       게임 시작 시 정답과 사전에 등록된 다른 모든 단어 간의 실제 원시 점수 분포를 계산하고,
+       힌트 마지노선 값과 매핑되도록 보정 데이터를 구성합니다.
+    */
+    function calibrateGame(targetWord) {
+      const hintVals = getDynamicHintThresholds(targetWord);
+      
+      const list = [];
+      const vecB = getNormalizedVector(targetWord);
+      
+      for (const word of Object.keys(WORD_DATABASE)) {
+        if (word === targetWord) continue;
+        const vecA = getNormalizedVector(word);
+        let dotProduct = 0;
+        for (let i = 0; i < vecA.length; i++) {
+          dotProduct += vecA[i] * vecB[i];
+        }
+        list.push({ word, dotProduct });
+      }
+      
+      // 원시 코사인 유사도 기준 내림차순 정렬
+      list.sort((a, b) => b.dotProduct - a.dotProduct);
+      
+      // 실제 1위, 10위 단어의 원시 코사인 점수를 정렬 기준에 맞추어 보정합니다.
+      const raw_1 = list[0] ? list[0].dotProduct : 0.95;
+      const raw_10 = list[9] ? list[9].dotProduct : (list[0] ? list[0].dotProduct * 0.9 : 0.85);
+      
+      // 1000위는 250개 단어 중 최하위 구간(상위 60% 인덱스 부근)으로 수렴하도록 가중 매핑
+      const idx_1000 = Math.min(list.length - 1, Math.max(10, Math.floor(list.length * 0.6)));
+      const raw_1000 = list[idx_1000] ? list[idx_1000].dotProduct : 0.65;
+      
+      calibrationData = {
+        raw_1,
+        raw_10,
+        raw_1000,
+        hintVals
+      };
+    }
+
+    /* [고도화 핵심 수정] 
+       원시 코사인 유사도가 보정 데이터의 임계 영역들과 비교해 세밀하고 균등하게 비선형 매핑됩니다.
+       이제 1위 유사도 이상의 수치는 절대로 나올 수 없으며, 점수가 실제 순위의 범위와 완벽히 1대1 동기화됩니다.
+    */
+    function calculateSimilarity(word, targetWord) {
+      if (word === targetWord) return 100.00;
+
+      const vecA = getNormalizedVector(word);
+      const vecB = getNormalizedVector(targetWord);
+
+      let dotProduct = 0;
+      for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+      }
+
+      const { raw_1, raw_10, raw_1000, hintVals } = calibrationData;
+
+      let score;
+      if (dotProduct >= raw_1) {
+        // 1위 원시 점수 이상인 경우 -> [1위 힌트값 ~ 100점] 사이로 정합 보간
+        const denom = (1.0 - raw_1) || 0.01;
+        const pct = Math.max(0, Math.min(1, (dotProduct - raw_1) / denom));
+        score = hintVals.first + pct * (100.00 - hintVals.first - 0.01);
+      } else if (dotProduct >= raw_10) {
+        // 10위 ~ 1위 원시 점수 사이인 경우 -> [10위 힌트값 ~ 1위 힌트값] 사이 보간
+        const denom = (raw_1 - raw_10) || 0.01;
+        const pct = Math.max(0, Math.min(1, (dotProduct - raw_10) / denom));
+        score = hintVals.tenth + pct * (hintVals.first - hintVals.tenth);
+      } else if (dotProduct >= raw_1000) {
+        // 1000위 ~ 10위 원시 점수 사이인 경우 -> [1000위 힌트값 ~ 10위 힌트값] 사이 보간
+        const denom = (raw_10 - raw_1000) || 0.01;
+        const pct = Math.max(0, Math.min(1, (dotProduct - raw_1000) / denom));
+        score = hintVals.thousandth + pct * (hintVals.tenth - hintVals.thousandth);
+      } else {
+        // 1000위 이하 -> [-100점 ~ 1000위 힌트값] 사이로 넓게 전개
+        const denom = (raw_1000 - (-1.0)) || 1.0;
+        const pct = Math.max(0, Math.min(1, (dotProduct - (-1.0)) / denom));
+        score = -100.00 + pct * (hintVals.thousandth - (-100.00));
+      }
+
+      return parseFloat(score.toFixed(2));
+    }
+
+    /* 유사도 점수와 정답 순위를 완벽하게 일치시켰습니다. */
+    function getWordRank(word, targetWord) {
+      if (word === targetWord) return "정답";
+
+      const score = calculateSimilarity(word, targetWord);
+      const { hintVals } = calibrationData;
+
+      if (score < hintVals.thousandth) {
+        return "1,000+";
+      }
+
+      let rank;
+      if (score >= hintVals.first) {
+        // 1위 이상의 점수인 경우 -> 2위 고정
+        const pct = (score - hintVals.first) / (100.00 - hintVals.first);
+        rank = Math.round(2 - pct * 1);
+      } else if (score >= hintVals.tenth) {
+        // 10위 ~ 1위 사이의 점수 (3단계) -> 10위 ~ 3위 범위로 정교하게 매핑
+        const pct = (score - hintVals.tenth) / (hintVals.first - hintVals.tenth);
+        rank = Math.round(10 - pct * 7);
+      } else if (score >= hintVals.thousandth) {
+        // 1000위 ~ 10위 사이의 점수
+        // 이를 대왕 힌트 신규 규칙인 [11위 ~ 100위 (3단계)], [101위 ~ 500위 (2단계)], [501위 ~ 1000위 (1단계)]로 세분화 매핑합니다.
+        
+        const totalSpan = hintVals.tenth - hintVals.thousandth;
+        const scoreRatio = (score - hintVals.thousandth) / totalSpan; // 0.0 ~ 1.0
+        
+        if (scoreRatio >= 0.70) {
+          // 상위 30% 영역 -> 11위 ~ 100위 매핑
+          const localRatio = (scoreRatio - 0.70) / 0.30;
+          rank = Math.round(100 - localRatio * 89);
+        } else if (scoreRatio >= 0.25) {
+          // 중위 45% 영역 -> 101위 ~ 500위 매핑
+          const localRatio = (scoreRatio - 0.25) / 0.45;
+          rank = Math.round(500 - localRatio * 399);
+        } else {
+          // 하위 25% 영역 -> 501위 ~ 1000위 매핑
+          const localRatio = scoreRatio / 0.25;
+          rank = Math.round(1000 - localRatio * 499);
+        }
+      } else {
+        rank = "1,000+";
+      }
+
+      return Math.max(2, Math.min(1000, rank));
+    }
+
+    /* [신규 기능] 정답 단어별 의미론적 유사도 경계 시뮬레이터 (Seeded Deterministic Simulation) */
+    function getDynamicHintThresholds(targetWord) {
+      let seed = hashString(targetWord);
+      
+      function seededRandom(min, max, offset) {
+        let s = (seed + offset) * 9301 + 49297;
+        s = s % 233280;
+        const rnd = s / 233280;
+        return min + rnd * (max - min);
+      }
+
+      const firstSim = parseFloat(seededRandom(52.50, 58.00, 1).toFixed(2));
+      let tenthSim = parseFloat(seededRandom(44.00, 49.50, 2).padStart ? 44.00 : seededRandom(44.00, 49.50, 2));
+      tenthSim = parseFloat(tenthSim.toFixed(2));
+      let thousandthSim = parseFloat(seededRandom(21.00, 26.50, 3).toFixed(2));
+
+      if (tenthSim >= firstSim) {
+        tenthSim = parseFloat((firstSim - seededRandom(2.0, 5.0, 4)).toFixed(2));
+      }
+      if (thousandthSim >= tenthSim) {
+        thousandthSim = parseFloat((tenthSim - seededRandom(10.0, 15.0, 5)).toFixed(2));
+      }
+
+      return {
+        first: firstSim,
+        tenth: tenthSim,
+        thousandth: thousandthSim
+      };
+    }
+
+    /* 🎁 범위 내 단어 필터링 헬퍼 */
+    function getWordsInRankRange(minRank, maxRank) {
+      const targetW = state.targetWord;
+      const matches = [];
+      for (const word of Object.keys(WORD_DATABASE)) {
+        if (word === targetW) continue;
+        const r = getWordRank(word, targetW);
+        if (typeof r === 'number' && r >= minRank && r <= maxRank) {
+          matches.push({ word, rank: r });
+        }
+      }
+      matches.sort((a, b) => a.rank - b.rank);
+      return matches;
+    }
+
+    /* ==========================================
+       3.  게임 세션 및 상태 관리 모듈
+       ========================================== */
+    const STORAGE_KEY_STATE = "kkomantele_game_state_cute_2026";
+    const STORAGE_KEY_DAILY_STATE = "kkomantele_daily_state_2026";
+    const STORAGE_KEY_PRACTICE_STATE = "kkomantele_practice_state_2026";
+
+    let state = {
+      isPracticeMode: false,
+      gameId: 1,
+      targetWord: "",
+      guesses: [],
+      isGameOver: false,
+      isVictoryAcknowledged: false, // 정답 후 팝업 닫고 관람 모드 전환 확인용
+      megaHintsUsed: 0,             // [대왕 힌트] 사용 횟수 관리 플래그
+      isMegaHintOpen: true          // [대왕 힌트] 열고 닫기(아코디언 토글) 플래그
+    };
+
+    function getDailyGameId() {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const kstTime = new Date(utc + (3600000 * 9));
+      
+      const yyyy = kstTime.getFullYear();
+      const mm = String(kstTime.getMonth() + 1).padStart(2, '0');
+      const dd = String(kstTime.getDate()).padStart(2, '0');
+      
+      return parseInt(`${yyyy}${mm}${dd}`);
+    }
+
+    function selectDailyWord(gameId) {
+      const words = Object.keys(WORD_DATABASE);
+      let seed = gameId * 15485863;
+      seed = (seed ^ 123459871) * 1664525;
+      const index = Math.abs(seed) % words.length;
+      return words[index];
+    }
+
+    function selectRandomWord() {
+      const words = Object.keys(WORD_DATABASE);
+      const randomIndex = Math.floor(Math.random() * words.length);
+      return words[randomIndex];
+    }
+
+    /* [고도화 패치] 두 모드 간 상태 및 로컬 스토리지 데이터 안정성 복구 강화 */
+    function initGame(forceNewPractice = false, switchToDaily = false) {
+      const currentDailyId = getDailyGameId();
+
+      let isPractice = forceNewPractice;
+      if (!forceNewPractice && !switchToDaily) {
+        const savedGlobal = localStorage.getItem(STORAGE_KEY_STATE);
+        if (savedGlobal) {
+          try {
+            const parsedGlobal = JSON.parse(savedGlobal);
+            isPractice = parsedGlobal.isPracticeMode;
+          } catch(e) {}
+        }
+      }
+
+      if (isPractice) {
+        let savedPractice = localStorage.getItem(STORAGE_KEY_PRACTICE_STATE);
+        if (savedPractice && !forceNewPractice) {
+          try {
+            const parsed = JSON.parse(savedPractice);
+            // 구버전 스키마 꼬임 오류 검증용 가드
+            if (parsed && parsed.targetWord && Array.isArray(parsed.guesses)) {
+              state = parsed;
+            } else {
+              createPracticeState();
+            }
+          } catch(e) {
+            createPracticeState();
+          }
+        } else {
+          createPracticeState();
+        }
+      } else {
+        let savedDaily = localStorage.getItem(STORAGE_KEY_DAILY_STATE);
+        if (savedDaily && !switchToDaily) {
+          try {
+            const parsed = JSON.parse(savedDaily);
+            if (parsed && parsed.gameId === currentDailyId && parsed.targetWord && Array.isArray(parsed.guesses)) {
+              state = parsed;
+            } else {
+              createDailyState(currentDailyId);
+            }
+          } catch(e) {
+            createDailyState(currentDailyId);
+          }
+        } else {
+          createDailyState(currentDailyId);
+        }
+      }
+
+      if (state.isMegaHintOpen === undefined) {
+        state.isMegaHintOpen = true;
+      }
+
+      // 게임 로드 즉시, 점수-랭킹 캘리브레이션 연산을 무조건 선행시킵니다.
+      calibrateGame(state.targetWord);
+
+      saveState();
+      renderAll();
+    }
+
+    function createPracticeState() {
+      state = {
+        isPracticeMode: true,
+        gameId: Math.floor(Math.random() * 9999) + 10000,
+        targetWord: selectRandomWord(),
+        guesses: [],
+        isGameOver: false,
+        isVictoryAcknowledged: false,
+        megaHintsUsed: 0,
+        isMegaHintOpen: true
+      };
+    }
+
+    function createDailyState(dailyId) {
+      state = {
+        isPracticeMode: false,
+        gameId: dailyId,
+        targetWord: selectDailyWord(dailyId),
+        guesses: [],
+        isGameOver: false,
+        isVictoryAcknowledged: false,
+        megaHintsUsed: 0,
+        isMegaHintOpen: true
+      };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(state));
+      if (state.isPracticeMode) {
+        localStorage.setItem(STORAGE_KEY_PRACTICE_STATE, JSON.stringify(state));
+      } else {
+        localStorage.setItem(STORAGE_KEY_DAILY_STATE, JSON.stringify(state));
+      }
+    }
+
+    /* ==========================================
+       4. UI 렌더링 및 밸런스 리디자인 모듈
+       ========================================== */
+    let currentSortMode = 'latest';
+
+    function renderAll() {
+      const badge = document.getElementById("gameModeBadge");
+      const btnSwitch = document.getElementById("btnSwitchToDaily");
+
+      if (state.isPracticeMode) {
+        badge.innerText = `연습모드 #${state.gameId}`;
+        badge.className = "text-[11px] px-2.5 py-0.5 rounded-full bg-[#b399ff]/15 text-[#b399ff] border border-[#b399ff]/30 font-jua mt-0.5";
+        if (btnSwitch) btnSwitch.classList.remove("hidden");
+      } else {
+        badge.innerText = `오늘의단어 #${state.gameId}`;
+        badge.className = "text-[11px] px-2.5 py-0.5 rounded-full bg-[#ff7695]/15 text-[#ff7695] border border-[#ff7695]/30 font-jua mt-0.5";
+        if (btnSwitch) btnSwitch.classList.add("hidden");
+      }
+
+      document.getElementById("statGuesses").innerText = `${state.guesses.length}개`;
+      
+      if (state.guesses.length > 0) {
+        const bestGuess = [...state.guesses].sort((a, b) => b.score - a.score)[0];
+        document.getElementById("statBestScore").innerText = bestGuess.score.toFixed(2);
+        
+        const numericRanks = state.guesses
+          .map(g => g.rank)
+          .filter(r => typeof r === 'number');
+        
+        if (numericRanks.length > 0) {
+          const minRank = Math.min(...numericRanks);
+          document.getElementById("statBestRank").innerText = `${minRank}위`;
+        } else {
+          document.getElementById("statBestRank").innerText = "1,000+";
+        }
+      } else {
+        document.getElementById("statBestScore").innerText = "-";
+        document.getElementById("statBestRank").innerText = "-";
+      }
+
+      // [신규 기능 동기화] 정답 단어에 연동된 고유의 힌트 수치들 계산 및 바인딩
+      const hintVals = getDynamicHintThresholds(state.targetWord);
+      const hintFirst = document.getElementById("hintFirst");
+      const hintTenth = document.getElementById("hintTenth");
+      const hintThousandth = document.getElementById("hintThousandth");
+      if (hintFirst) hintFirst.innerText = hintVals.first.toFixed(2);
+      if (hintTenth) hintTenth.innerText = hintVals.tenth.toFixed(2);
+      if (hintThousandth) hintThousandth.innerText = hintVals.thousandth.toFixed(2);
+
+      // [대왕 힌트 UI 가시화 동기화 / 범위 문구 교체 피드백 적용]
+      const btnUseMegaHint = document.getElementById("btnUseMegaHint");
+      const megaHintCountBadge = document.getElementById("megaHintCountBadge");
+      const hintsRemaining = 3 - (state.megaHintsUsed || 0);
+      if (megaHintCountBadge) megaHintCountBadge.innerText = `남은 힌트: ${hintsRemaining}회`;
+
+      if (btnUseMegaHint) {
+        if (state.megaHintsUsed === 0) {
+          btnUseMegaHint.innerText = "첫 번째 힌트 열기 (501위~1000위 단어 대공개!)";
+          btnUseMegaHint.disabled = false;
+          btnUseMegaHint.className = "flex-1 bg-gradient-to-r from-[#ff7695] to-[#ae92ff] hover:opacity-95 active:scale-95 text-white font-jua py-3 rounded-2xl transition-all shadow-md text-sm cursor-pointer";
+        } else if (state.megaHintsUsed === 1) {
+          btnUseMegaHint.innerText = "두 번째 힌트 열기 (101위~500위 단어 대공개!)";
+          btnUseMegaHint.disabled = false;
+          btnUseMegaHint.className = "flex-1 bg-gradient-to-r from-[#ff7695] to-[#ae92ff] hover:opacity-95 active:scale-95 text-white font-jua py-3 rounded-2xl transition-all shadow-md text-sm cursor-pointer";
+        } else if (state.megaHintsUsed === 2) {
+          btnUseMegaHint.innerText = "마지막 힌트 열기 (11위~100위 단어 대공개! 🚨)";
+          btnUseMegaHint.disabled = false;
+          btnUseMegaHint.className = "flex-1 bg-gradient-to-r from-[#ff7695] to-[#ffcf56] hover:opacity-95 active:scale-95 text-white font-jua py-3 rounded-2xl transition-all shadow-md text-sm cursor-pointer";
+        } else {
+          btnUseMegaHint.innerText = "모든 대왕 힌트를 사용하셨습니다! 🌸";
+          btnUseMegaHint.disabled = true;
+          btnUseMegaHint.className = "flex-1 bg-white/[0.04] border border-custom text-slate-500 font-jua py-3 rounded-2xl cursor-not-allowed text-sm";
+        }
+      }
+
+      // [대왕 힌트 아코디언 토글 제어]
+      const btnToggleMegaHintArea = document.getElementById("btnToggleMegaHintArea");
+      if (btnToggleMegaHintArea) {
+        if (state.megaHintsUsed > 0) {
+          btnToggleMegaHintArea.classList.remove("hidden");
+          if (state.isMegaHintOpen) {
+            btnToggleMegaHintArea.innerText = "힌트 숨기기 🙈";
+          } else {
+            btnToggleMegaHintArea.innerText = "힌트 펼치기 👁️";
+          }
+        } else {
+          btnToggleMegaHintArea.classList.add("hidden");
+        }
+      }
+
+      renderMegaHintsUI(); // 대왕 힌트 목록 다시 렌더링
+
+      const latestCard = document.getElementById("latestGuessCard");
+      if (state.guesses.length > 0) {
+        latestCard.classList.remove("hidden");
+        const last = state.guesses[state.guesses.length - 1];
+        
+        const isOov = !WORD_DATABASE.hasOwnProperty(last.word);
+        const latestWord = document.getElementById("latestWord");
+        const latestSemanticBadge = document.getElementById("latestSemanticBadge");
+        const latestScore = document.getElementById("latestScore");
+        const progress = document.getElementById("latestProgressBar");
+        const thumb = document.getElementById("sliderThumb");
+
+        if (latestWord) {
+          latestWord.innerText = last.word;
+        }
+        
+        // 3글자 이상 배열 붕괴를 막기 위해 시맨틱 추정 뱃지를 상단 타이틀 옆으로 분리 이전
+        if (latestSemanticBadge) {
+          latestSemanticBadge.innerHTML = isOov ? '<span class="text-[8px] sm:text-[9px] text-[#b399ff] border border-[#b399ff]/30 px-1.5 py-0.5 rounded-full font-bold bg-[#17132a]/80 whitespace-nowrap">시맨틱 추정 🧠</span>' : '';
+        }
+
+        if (latestScore) latestScore.innerText = last.score.toFixed(2);
+        
+        // 프로그레스 퍼센트 계산
+        const percentage = Math.max(0, Math.min(100, (last.score + 10) * 0.9));
+        
+        if (progress) progress.style.width = `${percentage}%`;
+        if (thumb) thumb.style.left = `${percentage}%`;
+
+        const rankSpan = document.getElementById("latestRank");
+        const indicator = document.getElementById("latestIndicator");
+
+        if (rankSpan && indicator && thumb) {
+          if (last.word === state.targetWord) {
+            rankSpan.innerText = "정답!";
+            rankSpan.className = "text-[#4ce5b6] font-jua text-xl sm:text-2xl animate-bounce";
+            indicator.innerText = "👑 완벽 일치 👑";
+            indicator.className = "text-[10px] font-jua bg-gradient-to-r from-[#ff7695] to-[#ffcf56] text-white px-3 py-1 rounded-full shadow-md";
+            thumb.innerText = "👑";
+          } else {
+            const rankVal = last.rank;
+            rankSpan.innerText = typeof rankVal === 'number' ? `${rankVal}위` : "1,000+";
+            rankSpan.className = "text-[#ff7695] font-jua text-xl sm:text-2xl";
+
+            if (typeof rankVal === 'number' && rankVal <= 10) {
+              indicator.innerText = "🔥🔥 극강의 불꽃 🔥🔥";
+              indicator.className = "text-[10px] font-jua bg-[#ff7695] text-white px-3 py-1 rounded-full animate-pulse shadow-md";
+              thumb.innerText = "🔥";
+            } else if (typeof rankVal === 'number' && rankVal <= 100) {
+              indicator.innerText = "☀️ 따스함 ☀️";
+              indicator.className = "text-[10px] font-jua bg-[#ffcf56]/15 text-[#ffcf56] border border-[#ffcf56]/20 px-3 py-1 rounded-full";
+              thumb.innerText = "☀️";
+            } else if (typeof rankVal === 'number' && rankVal <= 600) {
+              indicator.innerText = "🌱 선선함 🌱";
+              indicator.className = "text-[10px] font-jua bg-[#4ce5b6]/15 text-[#4ce5b6] border border-[#4ce5b6]/20 px-3 py-1 rounded-full";
+              thumb.innerText = "🌱";
+            } else {
+              indicator.innerText = "🧊 꽁꽁 차가움 🧊";
+              indicator.className = "text-[10px] font-jua bg-blue-500/15 text-blue-300 border border-blue-500/20 px-3 py-1 rounded-full";
+              thumb.innerText = "🧊";
+            }
+          }
+        }
+      } else {
+        latestCard.classList.add("hidden");
+      }
+
+      // 추측 내역 테이블 처리
+      const historyRows = document.getElementById("historyRows");
+      const historyCount = document.getElementById("historyCount");
+
+      if (historyCount) historyCount.innerText = state.guesses.length;
+
+      if (historyRows) {
+        if (state.guesses.length === 0) {
+          historyRows.innerHTML = `
+            <div id="emptyState" class="py-24 text-center flex flex-col items-center justify-center gap-3">
+              <span class="text-5xl animate-bounce" style="animation-duration: 2.5s">🦄</span>
+              <p class="text-sm text-[#b399ff]/80 font-bold font-jua">아직 모아진 단어가 없어요!<br><span class="text-xs text-slate-500 font-normal">단어를 입력하면 여기에 예쁘게 차곡차곡 쌓여요!</span></p>
+            </div>
+          `;
+        } else {
+          let displayList = [...state.guesses];
+          if (currentSortMode === 'similarity') {
+            displayList.sort((a, b) => b.score - a.score);
+          } else {
+            displayList.reverse();
+          }
+
+          historyRows.innerHTML = displayList.map((g) => {
+            const isTarget = g.word === state.targetWord;
+            let rankText = typeof g.rank === 'number' ? `${g.rank}위` : "1,000+";
+            if (isTarget) rankText = "🎉 정답";
+
+            const isOov = !WORD_DATABASE.hasOwnProperty(g.word);
+
+            let rowBg = "hover:bg-white/[0.02]";
+            let wordClass = "text-slate-200 font-bold";
+            let scoreClass = "text-slate-400 font-semibold font-mono tabular-nums";
+            let rankClass = "text-slate-500 font-medium";
+
+            // [순위 글자 크기 완전 통일] 기존의 text-base 확대 효과를 삭제하여 1~1000+위 모두 같은 글자 크기 상속!
+            if (isTarget) {
+              rowBg = "bg-[#4ce5b6]/5 hover:bg-[#4ce5b6]/10 border-l-4 border-[#4ce5b6]";
+              wordClass = "text-[#4ce5b6] font-black";
+              scoreClass = "text-[#4ce5b6] font-bold font-mono tabular-nums";
+              rankClass = "text-[#4ce5b6] font-jua";
+            } else if (typeof g.rank === 'number' && g.rank <= 10) {
+              rowBg = "bg-[#ff7695]/5 hover:bg-[#ff7695]/10 border-l-4 border-[#ff7695]";
+              wordClass = "text-[#ff7695] font-black";
+              scoreClass = "text-[#ff7695] font-bold font-mono tabular-nums";
+              rankClass = "text-[#ff7695] font-jua";
+            } else if (typeof g.rank === 'number' && g.rank <= 100) {
+              rowBg = "bg-[#ffcf56]/5 hover:bg-[#ffcf56]/10 border-l-4 border-[#ffcf56]";
+              wordClass = "text-[#ffcf56] font-bold";
+              scoreClass = "text-[#ffcf56] font-mono tabular-nums";
+              rankClass = "text-[#ffcf56] font-jua";
+            } else if (typeof g.rank === 'number' && g.rank <= 600) {
+              rowBg = "bg-[#b399ff]/3 hover:bg-[#b399ff]/8 border-l-4 border-[#b399ff]/50";
+              wordClass = "text-[#b399ff]/90";
+              scoreClass = "text-[#b399ff]/70 font-mono tabular-nums";
+              rankClass = "text-[#b399ff] font-jua";
+            }
+
+            // Grid-cols-12 가변성 문제 해결! 완벽한 CSS Grid 고정 구조로 헤더와 100% 매칭했습니다.
+            // 모든 요소에 min-w-0 을 줘서 글자가 폭주(blowout)하지 않고 자석처럼 정렬됩니다.
+            return `
+              <div class="grid grid-cols-[1.5fr_5fr_2.5fr_3fr] gap-1 sm:gap-2 px-2 sm:px-4 py-3 items-center transition-all duration-150 ${rowBg} w-full">
+                <div class="text-center text-[10px] sm:text-xs font-semibold text-slate-400 font-mono tracking-tighter whitespace-nowrap min-w-0">
+                  <span class="inline-block text-right min-w-[1.2rem] sm:min-w-[1.5rem]">${g.index}</span>회
+                </div>
+                <div class="flex items-center gap-1 min-w-0 text-left">
+                  <span class="flex-shrink-0 text-[10px] sm:text-sm text-center w-4 sm:w-5">🎈</span>
+                  <span class="truncate text-[11px] sm:text-sm ${wordClass}">${g.word}</span>
+                  ${isOov ? '<span class="text-[7px] sm:text-[8px] px-1 py-0.5 text-[#b399ff] border border-[#b399ff]/20 rounded bg-[#17132a] flex-shrink-0 font-normal leading-none whitespace-nowrap">추정</span>' : ''}
+                </div>
+                <div class="text-center ${scoreClass} text-[11px] sm:text-sm tracking-tight truncate min-w-0">${g.score.toFixed(2)}</div>
+                <div class="text-center text-[11px] sm:text-sm ${rankClass} whitespace-nowrap tracking-tight font-mono truncate min-w-0">${rankText}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      /* [고도화 패치] 맞춘 후에도 추가 측정을 할 수 있도록 팝업 확인 플래그 체크 */
+      if (state.isGameOver && !state.isVictoryAcknowledged) {
+        const victoryTargetWord = document.getElementById("victoryTargetWord");
+        const victoryTotalGuesses = document.getElementById("victoryTotalGuesses");
+        const victoryGameId = document.getElementById("victoryGameId");
+        
+        if (victoryTargetWord) victoryTargetWord.innerText = state.targetWord;
+        if (victoryTotalGuesses) victoryTotalGuesses.innerText = `${state.guesses.length}개`;
+        if (victoryGameId) victoryGameId.innerText = `#${state.gameId}`;
+        
+        setTimeout(() => {
+          const victoryModal = document.getElementById("victoryModal");
+          if (victoryModal) victoryModal.classList.remove("hidden");
+          triggerConfetti();
+        }, 500);
+      } else {
+        const victoryModal = document.getElementById("victoryModal");
+        if (victoryModal) victoryModal.classList.add("hidden");
+      }
+    }
+
+    /* [대왕 힌트 전용 비주얼 렌더러]
+       - 접어두기 플래그가 꺼지면 목록을 지웁니다.
+       - 역순 정렬 기획 적용: 3단계 힌트가 가장 위, 2단계, 1단계 순서로 쌓입니다.
+       - 중첩 백틱 문법이 특정 브라우저/샌드박스에서 컴파일 에러를 일으키지 않도록 안전한 문자열 연산 방식으로 완전히 리팩토링했습니다.
+       - [신규 범위 피드백 반영]: 1단계(501~1000위), 2단계(101~500위), 3단계(11~100위) 로 완전 변경 및 노출 텍스트 패치
+    */
+    function renderMegaHintsUI() {
+      const area = document.getElementById("megaHintDisplayArea");
+      if (!state.megaHintsUsed || state.megaHintsUsed === 0 || !state.isMegaHintOpen) {
+        if (area) area.classList.add("hidden");
+        return;
+      }
+      if (area) area.classList.remove("hidden");
+      
+      const elements = [];
+      
+      // 1단계 노출 (501위 ~ 1000위)
+      if (state.megaHintsUsed >= 1) {
+        const words = getWordsInRankRange(501, 1000);
+        let wordsHtml = "";
+        if (words.length > 0) {
+          wordsHtml = words.map(w => {
+            return '<span class="bg-[#17132a] border border-[#292147] px-2.5 py-1 rounded-full text-[10.5px] font-bold text-slate-300 whitespace-nowrap hover:scale-105 transition-all">' +
+                   w.word + ' <span class="text-[#ffcf56] font-mono">(' + w.rank + '위)</span></span>';
+          }).join('');
+        } else {
+          wordsHtml = '<span class="text-xs text-slate-500 font-medium">연관 범위 내 단어가 아직 사전에 존재하지 않습니다.</span>';
+        }
+
+        elements.push(`
+          <div class="bg-[#0f0d1e]/60 p-4 rounded-2xl border border-custom animate-bubble flex flex-col gap-2">
+            <h4 class="font-jua text-[#ffcf56] text-xs flex items-center gap-1">🌟 1단계 힌트 (501위 ~ 1000위 단어 목록)</h4>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              ${wordsHtml}
+            </div>
+          </div>
+        `);
+      }
+      
+      // 2단계 노출 (101위 ~ 500위)
+      if (state.megaHintsUsed >= 2) {
+        const words = getWordsInRankRange(101, 500);
+        let wordsHtml = "";
+        if (words.length > 0) {
+          wordsHtml = words.map(w => {
+            return '<span class="bg-[#17132a] border border-[#292147] px-2.5 py-1 rounded-full text-[10.5px] font-bold text-slate-300 whitespace-nowrap hover:scale-105 transition-all">' +
+                   w.word + ' <span class="text-[#ff7695] font-mono">(' + w.rank + '위)</span></span>';
+          }).join('');
+        } else {
+          wordsHtml = '<span class="text-xs text-slate-500 font-medium">연관 범위 내 단어가 아직 사전에 존재하지 않습니다.</span>';
+        }
+
+        elements.push(`
+          <div class="bg-[#0f0d1e]/60 p-4 rounded-2xl border border-custom animate-bubble flex flex-col gap-2">
+            <h4 class="font-jua text-[#ff7695] text-xs flex items-center gap-1">💖 2단계 힌트 (101위 ~ 500위 단어 목록)</h4>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              ${wordsHtml}
+            </div>
+          </div>
+        `);
+      }
+      
+      // 3단계 노출 (11위 ~ 100위)
+      if (state.megaHintsUsed >= 3) {
+        const words = getWordsInRankRange(11, 100);
+        let wordsHtml = "";
+        if (words.length > 0) {
+          wordsHtml = words.map(w => {
+            return '<span class="bg-[#17132a] border border-[#292147] px-2.5 py-1 rounded-full text-[10.5px] font-bold text-slate-300 whitespace-nowrap hover:scale-105 transition-all">' +
+                   w.word + ' <span class="text-[#4ce5b6] font-mono">(' + w.rank + '위)</span></span>';
+          }).join('');
+        } else {
+          wordsHtml = '<span class="text-xs text-slate-500 font-medium">연관 범위 내 단어가 아직 사전에 존재하지 않습니다.</span>';
+        }
+
+        elements.push(`
+          <div class="bg-[#0f0d1e]/60 p-4 rounded-2xl border border-custom animate-bubble flex flex-col gap-2">
+            <h4 class="font-jua text-[#4ce5b6] text-xs flex items-center gap-1">🔥 3단계 최종 힌트 (11위 ~ 100위 단어 목록)</h4>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              ${wordsHtml}
+            </div>
+          </div>
+        `);
+      }
+      
+      // 가장 최신 단계의 힌트 카드가 제일 먼저 보이도록 배열 뒤집어서 병합
+      elements.reverse();
+      if (area) area.innerHTML = elements.join('');
+    }
+
+    /* [아이폰 완전 호환형 클립보드 복사 엔진]
+       iOS Safari 단말기의 엄격한 보안 샌드박스로 유발되는 복사 씹힘 현상을 무력화하는 Range 가상 포커싱 폴백 복사 공식
+    */
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("멋진 소식이 클립보드에 수줍게 카피됐어! 친구에게 자랑해봐!", "success");
+        }).catch(() => {
+          fallbackCopyToClipboard(text);
+        });
+      } else {
+        fallbackCopyToClipboard(text);
+      }
+    }
+
+    function fallbackCopyToClipboard(text) {
+      const tempTextArea = document.getElementById("tempShareNode");
+      if (!tempTextArea) return;
+      tempTextArea.value = text;
+      
+      // iOS 전용 selection 지정 로직 가동
+      if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+        const range = document.createRange();
+        range.selectNodeContents(tempTextArea);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        tempTextArea.setSelectionRange(0, 999999);
+      } else {
+        tempTextArea.select();
+      }
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showToast("멋진 소식이 클립보드에 수줍게 카피됐어! 친구에게 자랑해봐!", "success");
+        } else {
+          showToast("복사 실패 ㅠ_일 직접 복사해줘!", "error");
+        }
+      } catch (err) {
+        showToast("복사 실패 ㅠ_일 직접 복사해줘!", "error");
+      }
+    }
+
+    /* ==========================================
+       5.  커스텀 인터랙티브 알림 모듈 (Toast)
+       ========================================== */
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      
+      let themeClass = "bg-[#17132a] border-custom text-slate-200";
+      if (type === "success") {
+        themeClass = "bg-[#4ce5b6]/15 border-[#4ce5b6] text-[#4ce5b6]";
+      } else if (type === "warning") {
+        themeClass = "bg-[#ffcf56]/15 border-[#ffcf56] text-[#ffcf56]";
+      } else if (type === "error") {
+        themeClass = "bg-[#ff7695]/15 border-[#ff7695] text-[#ff7695]";
+      } else if (type === "magic") {
+        themeClass = "bg-[#b399ff]/15 border-[#b399ff] text-[#b399ff]";
+      }
+
+      toast.className = `px-4.5 py-3.5 rounded-2xl border shadow-[0_8px_30px_rgba(0,0,0,0.3)] flex items-center gap-2.5 text-sm font-bold transform translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto ${themeClass} font-jua`;
+      
+      let icon = "🧸";
+      if (type === "success") icon = "💝";
+      if (type === "warning") icon = "🍭";
+      if (type === "error") icon = "👾";
+      if (type === "magic") icon = "🔮";
+
+      toast.innerHTML = '<span>' + icon + '</span><p class="flex-1">' + message + '</p>';
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("translate-y-2", "opacity-0");
+        toast.addEventListener("transitionend", () => {
+          toast.remove();
+        });
+      }, 3500);
+    }
+
+    /* ==========================================
+       6. 브라우저 이벤트 리스너 바인딩
+       ========================================== */
+    window.addEventListener("DOMContentLoaded", () => {
+      initializeNormalizedVectors();
+      initGame();
+
+      if (!localStorage.getItem("kkomantele_first_visit")) {
+        const helpModal = document.getElementById("helpModal");
+        if (helpModal) helpModal.classList.remove("hidden");
+        localStorage.setItem("kkomantele_first_visit", "true");
+      }
+
+      const guessForm = document.getElementById("guessForm");
+      const wordInput = document.getElementById("wordInput");
+
+      if (guessForm && wordInput) {
+        guessForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+
+          if (e.isComposing) return;
+
+          const guessValue = wordInput.value.trim();
+          wordInput.value = "";
+
+          if (!guessValue) {
+            showToast("단어를 빈칸으로 둘 순 없어요!", "warning");
+            return;
+          }
+
+          const koreanRegex = /^[가-힣A-Za-z0-9]+$/;
+          if (!koreanRegex.test(guessValue)) {
+            showToast("한글, 영어, 숫자 조합 단어만 입력 가능해!", "error");
+            return;
+          }
+
+          // 게임 승리 선언 후 '계속해서 유사도 탐색' 상태가 아닌, 순수 게임오버 상태 차단
+          if (state.isGameOver && !state.isVictoryAcknowledged) {
+            showToast("이미 정답을 풀었답니다! 새 게임을 즐겨주세요.", "info");
+            return;
+          }
+
+          if (state.guesses.some(g => g.word === guessValue)) {
+            showToast("이미 머리를 맞대고 추측했던 단어야!", "warning");
+            return;
+          }
+
+          const isRegistered = WORD_DATABASE.hasOwnProperty(guessValue);
+          if (!isRegistered) {
+            showToast("사전에 없는 신비 단어를 마법 엔진으로 계산 중!", "magic");
+          }
+
+          const score = calculateSimilarity(guessValue, state.targetWord);
+          const rank = getWordRank(guessValue, state.targetWord);
+          
+          const newGuess = {
+            index: state.guesses.length + 1,
+            word: guessValue,
+            score: score,
+            rank: rank,
+            timestamp: Date.now()
+          };
+
+          state.guesses.push(newGuess);
+
+          if (guessValue === state.targetWord) {
+            state.isGameOver = true;
+            // 새로 관람 모드로 진입하기 위해 승리 팝업 승인 대기
+            state.isVictoryAcknowledged = false;
+            showToast("꺄! 완벽하게 맞혔어요! 최고최고!", "success");
+          } else {
+            showToast('\'' + guessValue + '\' 제출 완료! 지수는 ' + score.toFixed(2) + '점이야!', "info");
+          }
+
+          saveState();
+          renderAll();
+        });
+      }
+
+      // 정렬 제어
+      const btnSortLatest = document.getElementById("sortLatest");
+      const btnSortSim = document.getElementById("sortSimilarity");
+
+      if (btnSortLatest && btnSortSim) {
+        btnSortLatest.addEventListener("click", () => {
+          currentSortMode = 'latest';
+          btnSortLatest.className = "px-3.5 py-1.5 rounded-lg font-bold bg-[#ff7695]/15 text-[#ff7695] border border-[#ff7695]/20 transition-all cursor-pointer";
+          btnSortSim.className = "px-3.5 py-1.5 rounded-lg font-bold text-[#b399ff]/60 hover:text-[#b399ff] transition-all cursor-pointer";
+          renderAll();
+        });
+
+        btnSortSim.addEventListener("click", () => {
+          currentSortMode = 'similarity';
+          btnSortSim.className = "px-3.5 py-1.5 rounded-lg font-bold bg-[#ff7695]/15 text-[#ff7695] border border-[#ff7695]/20 transition-all cursor-pointer";
+          btnSortLatest.className = "px-3.5 py-1.5 rounded-lg font-bold text-[#b399ff]/60 hover:text-[#b399ff] transition-all cursor-pointer";
+          renderAll();
+        });
+      }
+
+      const btnHelp = document.getElementById("btnHelp");
+      const btnCloseHelp = document.getElementById("btnCloseHelp");
+      const btnStartGame = document.getElementById("btnStartGame");
+      const helpModal = document.getElementById("helpModal");
+
+      if (btnHelp && btnCloseHelp && btnStartGame && helpModal) {
+        btnHelp.addEventListener("click", () => {
+          helpModal.classList.remove("hidden");
+          const scrollArea = helpModal.querySelector('.overflow-y-auto');
+          if (scrollArea) scrollArea.scrollTop = 0;
+        });
+
+        btnCloseHelp.addEventListener("click", () => {
+          helpModal.classList.add("hidden");
+        });
+
+        btnStartGame.addEventListener("click", () => {
+          helpModal.classList.add("hidden");
+        });
+      }
+
+      // 오늘의 단어로 복귀 처리 (양방향 상태 분리 적용)
+      const btnSwitchToDaily = document.getElementById("btnSwitchToDaily");
+      if (btnSwitchToDaily) {
+        btnSwitchToDaily.addEventListener("click", () => {
+          initGame(false, true);
+          showToast("오늘의 꼬맨틀 단어로 복귀했습니다! 🧸🍒", "success");
+        });
+      }
+
+      /* ==========================================
+         [기능 업데이트] 정답 확인 후 관람 모드 전환 처리
+         ========================================== */
+      const btnKeepGoing = document.getElementById("btnKeepGoing");
+      if (btnKeepGoing) {
+        btnKeepGoing.addEventListener("click", () => {
+          state.isVictoryAcknowledged = true;
+          saveState();
+          renderAll();
+          showToast("정답 맞춤이 완료되었습니다! 정답을 유지한 채 의미 유사도를 계속 입력하고 비교할 수 있습니다.", "success");
+        });
+      }
+
+      /* ==========================================
+         [신규 팝업 모듈 바인딩] 유사도 기준표 & 대왕 힌트 트리거 바인더
+         ========================================== */
+      const btnOpenBaseHint = document.getElementById("btnOpenBaseHint");
+      const baseHintModal = document.getElementById("baseHintModal");
+      const btnCloseBaseHint = document.getElementById("btnCloseBaseHint");
+      const btnConfirmBaseHint = document.getElementById("btnConfirmBaseHint");
+
+      const btnOpenMegaHint = document.getElementById("btnOpenMegaHint");
+      const megaHintModal = document.getElementById("megaHintModal");
+      const btnCloseMegaHint = document.getElementById("btnCloseMegaHint");
+      const btnConfirmMegaHint = document.getElementById("btnConfirmMegaHint");
+
+      // 1. 유사도 기준표 모달 제어
+      if (btnOpenBaseHint && baseHintModal && btnCloseBaseHint && btnConfirmBaseHint) {
+        btnOpenBaseHint.addEventListener("click", () => {
+          baseHintModal.classList.remove("hidden");
+          const scrollArea = baseHintModal.querySelector('.overflow-y-auto');
+          if (scrollArea) scrollArea.scrollTop = 0;
+        });
+        btnCloseBaseHint.addEventListener("click", () => {
+          baseHintModal.classList.add("hidden");
+        });
+        btnConfirmBaseHint.addEventListener("click", () => {
+          baseHintModal.classList.add("hidden");
+        });
+      }
+
+      // 2. 대왕 힌트 모달 제어
+      if (btnOpenMegaHint && megaHintModal && btnCloseMegaHint && btnConfirmMegaHint) {
+        btnOpenMegaHint.addEventListener("click", () => {
+          megaHintModal.classList.remove("hidden");
+          const scrollArea = megaHintModal.querySelector('.overflow-y-auto');
+          if (scrollArea) scrollArea.scrollTop = 0;
+        });
+        btnCloseMegaHint.addEventListener("click", () => {
+          megaHintModal.classList.add("hidden");
+        });
+        btnConfirmMegaHint.addEventListener("click", () => {
+          megaHintModal.classList.add("hidden");
+        });
+      }
+
+      /* ==========================================
+         [신규 기능] 🎁 대왕 힌트 해제 핸들러
+         ========================================== */
+      const btnUseMegaHint = document.getElementById("btnUseMegaHint");
+      if (btnUseMegaHint) {
+        btnUseMegaHint.addEventListener("click", () => {
+          if (state.isGameOver && !state.isVictoryAcknowledged) {
+            showToast("이미 정답을 풀었답니다! 새 게임에서 힌트를 열어보세요.", "warning");
+            return;
+          }
+
+          const currentUsed = state.megaHintsUsed || 0;
+          if (currentUsed >= 3) {
+            showToast("이번 판에 사용할 수 있는 모든 대왕 힌트를 열었습니다! 🌸", "warning");
+            return;
+          }
+
+          // 힌트 사용량 1 증가 및 아코디언 강제 펼침
+          state.megaHintsUsed = currentUsed + 1;
+          state.isMegaHintOpen = true;
+          saveState();
+          renderAll();
+
+          // 아기자기한 이펙트 연출
+          confetti({
+            particleCount: 20,
+            spread: 30,
+            origin: { y: 0.8 },
+            colors: ['#ff7695', '#ffcf56', '#4ce5b6', '#b399ff']
+          });
+
+          showToast((currentUsed + 1) + "단계 대왕 힌트의 봉인이 풀렸습니다! 🔮", "success");
+        });
+      }
+
+      /* ==========================================
+         [신규 기능] 🎁 대왕 힌트 아코디언 접고 열기 토글 이벤트 바인딩
+         ========================================== */
+      const btnToggleMegaHintArea = document.getElementById("btnToggleMegaHintArea");
+      if (btnToggleMegaHintArea) {
+        btnToggleMegaHintArea.addEventListener("click", () => {
+          state.isMegaHintOpen = !state.isMegaHintOpen;
+          saveState();
+          renderAll();
+          if (state.isMegaHintOpen) {
+            showToast("대왕 힌트를 다시 펼쳤습니다! 👁️", "success");
+          } else {
+            showToast("화면 정리를 위해 대왕 힌트를 숨겨두었습니다! 🙈", "info");
+          }
+        });
+      }
+
+      /* ==========================================
+         [기능 업데이트] 포기하고 정답보기 기능 구현
+         ========================================== */
+      const btnGiveUp = document.getElementById("btnGiveUp");
+      const giveUpModal = document.getElementById("giveUpModal");
+      const btnGiveUpCancel = document.getElementById("btnGiveUpCancel");
+      const btnGiveUpConfirm = document.getElementById("btnGiveUpConfirm");
+      const btnGiveUpClose = document.getElementById("btnGiveUpClose");
+      const revealTargetContainer = document.getElementById("revealTargetContainer");
+      const giveUpButtons = document.getElementById("giveUpButtons");
+
+      if (btnGiveUp && giveUpModal && btnGiveUpCancel && btnGiveUpConfirm && btnGiveUpClose && revealTargetContainer && giveUpButtons) {
+        btnGiveUp.addEventListener("click", () => {
+          if (state.isGameOver) {
+            showToast("이미 이번 판 정답을 맞추셨거나 포기 처리가 끝났어요!", "warning");
+            return;
+          }
+          revealTargetContainer.classList.add("hidden");
+          giveUpButtons.classList.remove("hidden");
+          btnGiveUpClose.classList.add("hidden");
+          giveUpModal.classList.remove("hidden");
+        });
+
+        btnGiveUpCancel.addEventListener("click", () => {
+          giveUpModal.classList.add("hidden");
+        });
+
+        btnGiveUpConfirm.addEventListener("click", () => {
+          // 정답 노출 및 상태 종료 처리
+          state.isGameOver = true;
+          state.isVictoryAcknowledged = true; // 강제 관람 허용 플래그
+          
+          // 정답을 추측 목록 마지막에 강제 삽입하여 기록에 노출
+          const score = 100.00;
+          const newGuess = {
+            index: state.guesses.length + 1,
+            word: state.targetWord,
+            score: score,
+            rank: "정답",
+            timestamp: Date.now()
+          };
+          state.guesses.push(newGuess);
+          saveState();
+
+          const revealedTargetWord = document.getElementById("revealedTargetWord");
+          if (revealedTargetWord) revealedTargetWord.innerText = state.targetWord;
+          revealTargetContainer.classList.remove("hidden");
+          giveUpButtons.classList.add("hidden");
+          btnGiveUpClose.classList.remove("hidden");
+          
+          showToast("정답은 [" + state.targetWord + "] 이였습니다! 아쉽지만 다음 판에 이겨보아요! 🧸", "warning");
+        });
+
+        btnGiveUpClose.addEventListener("click", () => {
+          giveUpModal.classList.add("hidden");
+          renderAll();
+        });
+      }
+
+      // [리셋 이벤트 완벽 복구 완료]
+      // 기존에 꼬여있던 복수 선언된 btnRefresh 블록과 초기화 구문을 소거하고 단일 DOMContentLoaded 범위 내 안전 구문으로 안착시켰습니다.
+      const btnRefresh = document.getElementById("btnRefresh");
+      const confirmModal = document.getElementById("confirmModal");
+      const btnConfirmYes = document.getElementById("btnConfirmYes");
+      const btnConfirmNo = document.getElementById("btnConfirmNo");
+
+      if (btnRefresh && confirmModal && btnConfirmYes && btnConfirmNo) {
+        btnRefresh.addEventListener("click", () => {
+          confirmModal.classList.remove("hidden");
+        });
+
+        btnConfirmNo.addEventListener("click", () => {
+          confirmModal.classList.add("hidden");
+        });
+
+        btnConfirmYes.addEventListener("click", () => {
+          confirmModal.classList.add("hidden");
+          initGame(true);
+          showToast("완전 새로운 연습 게임 방을 차렸어! 정답은 비밀이야!", "success");
+        });
+      }
+
+      const btnNextPractice = document.getElementById("btnNextPractice");
+      if (btnNextPractice) {
+        btnNextPractice.addEventListener("click", () => {
+          initGame(true);
+          const victoryModal = document.getElementById("victoryModal");
+          if (victoryModal) victoryModal.classList.add("hidden");
+          showToast("준비 완료! 이번엔 무엇이 정답일까요? 🍒", "success");
+        });
+      }
+
+      // 결과 공유 클립보드 액션
+      const btnShare = document.getElementById("btnShare");
+      if (btnShare) {
+        btnShare.addEventListener("click", () => {
+          const modeText = state.isPracticeMode ? "말랑 연습판 #" + state.gameId : "오늘의 말랑꼬맨틀 #" + state.gameId;
+          const shareText = "🧸 말랑 꼬맨틀 " + modeText + "\n🍭 도전 횟수: " + state.guesses.length + "개 만에 해독!\n🔥 최고 유사도 점수: 100.00점 최고!\n지금 같이 단어 마법 풀어볼 사람?!";
+          copyToClipboard(shareText);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
